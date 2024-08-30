@@ -1,49 +1,56 @@
-import openai
 import requests
 import configparser
 import os
+from requests.exceptions import HTTPError, RequestException
 
-## read-in configs
+## read-in config
 config = configparser.ConfigParser()
 config.read("./config.ini")
 
+## read-in input CSV
+
+
+## get configs
 api_key = config.get("OPENAI", "API_KEY")
 endpoint = config.get("OPENAI", "ENDPOINT")
 model = config.get("OPENAI", "MODEL")
+tmp_dir = config.get("MOCKGEN", "TMP_DIR")
 
-temp_dir = config.get("MOCKGEN", "TEMP_DIR")
+prompt = [{"role": "user", "content": "Give me three rows by three columns of mock CSV data, and do not give me any other text. Three tables. Table names are A, B, C, include separately inside CSV before the data."}]
 
-prompt = [{"role": "user", "content": "Give me three rows by three columns of mock CSV data, and do not give me any other text."}]
+def download_data(prompt):
 
-headers = {
-    "Authorization": f"Bearer {api_key}",
-    "Content-Type": "application/json"
-}
+    filename = f"{tmp_dir}/data.csv"
 
-data = {
-    "model": model,
-    "messages": prompt
-}
+    ## request headers and data payload
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
+    }
+    data = {
+        "model": model,
+        "messages": prompt
+    }
 
-response = requests.post(endpoint, headers=headers, json=data)
+    ## send API request, extract andresponse content
+    response = requests.post(endpoint, headers=headers, json=data)
+    response.raise_for_status()
 
-if response.status_code == 200:
-    response_json = response.json()
-    response_text = response_json['choices'][0]['message']['content']
-else:
-    print(f"HTTP Error: {response.status_code}")
+    if response.status_code == 200:
+        response_text = response.json()['choices'][0]['message']['content']
+    else:
+        raise HTTPError(f"Server returned code {response.status_code}") 
 
-filename = f"{temp_dir}/data.csv"
+    if not os.path.exists(tmp_dir):
+        os.makedirs(tmp_dir)
 
-if not os.path.exists(temp_dir):
-    os.makedirs(temp_dir)
+    with open(filename, "w") as file:
+        file.write(response_text.strip("`").strip())
 
-with open(filename, "w") as file:
-    file.write(response_text.strip("`").strip())
+download_data(prompt)
 
-def get_data():
-    return
+def get_schemas(input):
 
-def load_data():
-    return
 
+# def load_data():
+#     return
